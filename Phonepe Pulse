@@ -325,7 +325,7 @@ if select == "Quarter wise Data":
 
                     if s3 or st.session_state.s3_state:
                         st.session_state.s3_state = True
-                        path = f'C:/Users/Aswini Praba/Desktop/python/git/pulse/data/aggregated/transaction/country/india/{x3}/{x4}.json'
+                        path = f'D:\\Phonepe Pulse\\pulse\\data\\aggregated\\user\\country\\india\\state{x3}/{x4}.json'
                         with open(path, 'r') as f:
                             info = json.load(f)
                             tran_data = info['data']['transactionData']
