@@ -1,0 +1,158 @@
+import mysql.connector
+import pandas as pd
+import json
+import streamlit as st
+import plotly.express as px
+import plotly.io as pio
+from decimal import Decimal
+
+phonepepulse=mysql.connector.connect(host='localhost',
+                        database='phonepepulse',
+                        user='root',
+                        password='Ajay@6395',
+                        port='3306'
+)
+mycursor = phonepepulse.cursor(buffered=True)
+
+st.set_page_config(page_title="PhonePe", layout="wide")
+
+st.title("PHONEPE PULSE")
+
+
+Year = st.selectbox(
+    'Kindly Select The Year:',
+    ('2018', '2019', '2020', '2021', '2022'))
+st.write('You selected:', Year)
+
+Quarter = st.selectbox(
+    'Kindly Select The Quarter:',
+    ('1', '2', '3', '4'))
+
+st.write('You selected:', Quarter)
+
+Type = st.selectbox(
+    'Transaction Type:',
+    ('Recharge & bill payments', 'Peer-to-peer payments', 'Merchant payments', 'Financial Services', 'Others'))
+st.write('You selected:', Type)
+
+Details = st.selectbox(
+    'Kindly Select The Required Details:',
+    (
+        'Aggregated Transaction',
+        'Registered Users'))
+
+st.write('You selected:', Details)
+
+display_values = {
+    "Aggregated Transaction": {
+
+        "table_name": "agg_transaction",
+
+        "color": "Transaction_amount",
+        "hover_name": "State",
+        "hover_data": "Transaction_type",
+        "title": "India phonepe Transaction"
+    },
+
+    "Registered Users": {
+        "table_name": "map_user",
+        "color": "User_count",
+        "hover_name": "State",
+        "hover_data": "Entity_Name",
+        "title": "India phonepe Registered Users"
+    }
+
+}
+
+if Details == "Aggregated Transaction":
+    mycursor.execute(
+        f"select * from {display_values[Details]['table_name']} where Year={Year} and Quarter={Quarter} and Transaction_type='{Type}'")
+elif Details == "Registered Users":
+    mycursor.execute(
+        f"select * from {display_values[Details]['table_name']} where Year={Year} and Quarter={Quarter} and User_count='{Type}'")
+
+response = mycursor.fetchall()
+phonepepulse.commit()
+response_list = []
+if Details == "Registered Users":
+    print("registered")
+    response_list = [list(x) for x in response]
+    for index, r in enumerate(response_list):
+        if type(r[-1]) == Decimal:
+            response_list[index] = [r[0], r[1], r[2], int(r[3])]
+    response = response_list
+
+india_states = json.load(open("C:\\Users\\LENOVO\\PycharmProjects\\pythonProject5\\India\\states_india.geojson", "r"))
+state_id_map = {}
+for feature in india_states["features"]:
+    feature["id"] = feature["properties"]["state_code"]
+    state_id_map[feature["properties"]["st_nm"]] = feature["id"]
+
+df = pd.DataFrame(response)
+
+mycursor.execute(f"show columns from {display_values[Details]['table_name']};")
+columns = mycursor.fetchall()
+column_names = [details[0] for details in columns]
+if Details == "Registered Users":
+    column_names.remove("State")
+    column_names.remove("Year")
+    column_names.remove("District")
+    column_names.append("User_count")
+print(column_names)
+
+df.columns = column_names
+df['State']=df['State'].replace({'telangana':'Telangana',
+                                        'andaman-&-nicobar-islands':'Andaman & Nicobar Island',
+                                    'andhra-pradesh':'Andhra Pradesh',
+                                    'arunachal-pradesh':'Arunanchal Pradesh',
+                                    'assam':'Assam',
+                                    'bihar':'Bihar',
+                                    'chhattisgarh' :'Chhattisgarh',
+                                    'dadra-&-nagar-haveli-&-daman-&-diu':'Daman & Diu',
+                                    'goa':'Goa',
+                                    'gujarat':'Gujarat',
+                                    'haryana':'Haryana',
+                                    'himachal-pradesh':'Himachal Pradesh',
+                                    'jammu-&-kashmir':'Jammu & Kashmir',
+                                    'jharkhand':'Jharkhand',
+                                    'karnataka':'Karnataka',
+                                    'kerala':'Kerala',
+                                    'lakshadweep':'Lakshadweep',
+                                    'madhya-pradesh':'Madhya Pradesh',
+                                    'maharashtra':'Maharashtra',
+                                    'manipur':'Manipur',
+                                    'chandigarh':'Chandigarh',
+                                    'puducherry':'Puducherry',
+                                    'punjab':'Punjab',
+                                    'rajasthan':'Rajasthan',
+                                    'sikkim':'Sikkim',
+                                    'tamil-nadu':'Tamil Nadu',
+                                    'tripura':	'Tripura',
+                                    'uttar-pradesh':'Uttar Pradesh',
+                                    'uttarakhand':'Uttarakhand',
+                                    'west-bengal':'West Bengal',
+                                    'odisha':'Odisha',
+                                    'dadra-&-nagar-haveli-&-daman-&-diu':'Dadara & Nagar Havelli',
+                                    'meghalaya':'Meghalaya',
+                                    'mizoram': 'Mizoram',
+                                    'nagaland':'Nagaland',
+                                    'ladakh':'Jammu & Kashmir',
+                                    'delhi':'NCT of Delhi'} )
+df["id"] = df["State"].apply(lambda x: state_id_map[x])
+
+print("Test2")
+print(display_values[Details]["hover_data"])
+
+print(df)
+
+fig = px.choropleth(df,
+                    locations="id",
+                    geojson=india_states,
+                    color=display_values[Details]["color"],
+                    hover_name=display_values[Details]["hover_name"],
+                    hover_data=[display_values[Details]["hover_data"]],
+                    title=display_values[Details]["title"])
+
+fig.update_geos(fitbounds="locations", visible=False)
+st.plotly_chart(fig,theme=None, use_container_width=True)
+
